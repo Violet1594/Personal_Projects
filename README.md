@@ -1,6 +1,6 @@
 # 🌟 Welcome to Violet's GitHub Portfolio! 🌟
 
-Hi there! 👋 I'm **Violet**, a passionate Computer Science student with a deep interest in the intersection of **mathematics**, **software development**, and **data science**. Here, you'll find a collection of projects that demonstrate my skills in **problem-solving**, **algorithm design**, and **real-time data analysis**. Whether it’s working with advanced cryptography, building interactive dashboards, or exploring computational geometry, I love combining theory and practice in meaningful ways. 
+Hi there! 👋 I'm **Violet**, a passionate Computer Science student with a deep interest in the intersection of **mathematics**, **software development**, and **data science**. Here, you'll find a collection of projects that demonstrate my skills in **problem-solving**, **algorithm design**, and **real-time data analysis**. Whether it’s working with advanced cryptography, building interactive dashboards, exploring computational geometry, or simulating complex systems, I love combining theory and practice in meaningful ways. 
 
 ## 🚀 Projects Overview
 
@@ -47,10 +47,40 @@ Hi there! 👋 I'm **Violet**, a passionate Computer Science student with a deep
      - Provides an immersive 3D maze-solving experience through Unity.
    - **Skills**: Algorithm Design, Computational Geometry, Unity Development, 3D Visualization.
 
+### 5. **Traffic Simulator with Dijkstra's Algorithm 🚦**
+   - **Overview**: This project simulates real-time traffic using **Dijkstra’s algorithm** for shortest path calculation, allowing vehicles to navigate between intersections efficiently. The simulation includes customizable road networks and vehicle dynamics.
+   - **Tech Stack**:
+     - Java (Core Simulation and Algorithm Implementation)
+     - JavaFX (Interactive Visualization)
+   - **Highlights**:
+     - Visualizes vehicle movement through intersections based on shortest paths.
+     - Supports real-time input for adding or removing intersections and vehicles.
+     - Demonstrates how complex algorithms can be applied to dynamic systems in real time.
+   - **Skills**: Java, Graph Theory, Dijkstra's Algorithm, Real-Time Systems.
+
+### 6. **Simulating and Solving Differential Equations Using Numerical Methods 🔢**
+   - **Overview**: This project implements numerical methods like **Euler’s method** and **Runge-Kutta (4th order)** to solve differential equations. It showcases how mathematical problems such as population growth and heat distribution can be modeled and solved programmatically.
+   - **Tech Stack**:
+     - C (Numerical Methods Implementation)
+     - Python (Symbolic Equation Solving with SymPy)
+   - **Highlights**:
+     - Solves both **Ordinary Differential Equations (ODEs)** and **Partial Differential Equations (PDEs)**.
+     - Outputs results to CSV files for further analysis or visualization using tools like GNUplot.
+   - **Skills**: Numerical Methods, C Programming, Differential Equations, Mathematical Modeling.
+
+### 7. **Cryptographic Hash Function Implementation 🔐**
+   - **Overview**: This project implements a custom cryptographic hash function, exploring the design and theory behind secure hashing techniques such as **Merkle-Damgård construction** and **SHA-like compression functions**.
+   - **Tech Stack**:
+     - C (Core Hash Function Implementation)
+   - **Highlights**:
+     - Implements cryptographic hash properties such as **collision resistance** and **pre-image resistance**.
+     - Demonstrates an understanding of low-level bit manipulation and block processing techniques for secure hash functions.
+   - **Skills**: Cryptography, Hash Functions, C Programming, Algorithm Efficiency.
+
 ## 🎯 Goals and Future Projects
 
 The goal of these projects is to demonstrate my ability to:
-- Combine **theoretical knowledge** (e.g., cryptography, geometry) with **practical applications** (e.g., algorithm simulation, game development).
+- Combine **theoretical knowledge** (e.g., cryptography, geometry, numerical methods) with **practical applications** (e.g., algorithm simulation, game development, real-time systems).
 - Work with **real-time data** to create tools that provide valuable insights (e.g., stock market analysis).
 - Build projects that are both **technically challenging** and **visually engaging**, showcasing a strong balance of **problem-solving** and **creative thinking**.
 
