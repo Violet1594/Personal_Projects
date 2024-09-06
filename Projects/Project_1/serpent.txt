@@ -1,0 +1,325 @@
+// Constants
+ROUNDS := 32;
+BLOCK_LEN := 16;
+KEY_LEN := 32;
+GOLDEN_RATIO := 0x9E3779B9;
+
+SBox := [
+    [0x83, 0x1F, 0x6A, 0xB5, 0xDE, 0x24, 0x07, 0xC9],
+    [0xCF, 0x72, 0x09, 0xA5, 0xB1, 0x8E, 0xD6, 0x43],
+    [0x68, 0x97, 0xC3, 0xFA, 0x1D, 0x4E, 0xB0, 0x25 ],
+    [0xF0, 0x8B, 0x9C, 0x36, 0x1D, 0x42, 0x7A, 0xE5 ],
+    [0xF1, 0x38, 0x0C, 0x6B, 0x52, 0xA4, 0xE9, 0xD7 ],
+    [0x5F, 0xB2, 0xA4, 0xC9, 0x30, 0x8E, 0x6D, 0x17 ],
+    [0x27, 0x5C, 0x48, 0xB6, 0x9E, 0xF1, 0x3D, 0x0A ],
+    [0xD1, 0x0F, 0x8E, 0xB2, 0x47, 0xAC, 0x39, 0x65 ]
+];
+
+
+
+
+SBoxInv := [
+          [ 0x3D, 0x0B, 0x6A, 0xC5, 0xE1, 0x74, 0x9F, 0x28 ],
+          [ 0x85, 0xE2, 0x6F, 0x3C, 0x4B, 0x97, 0xD1, 0x0A ],
+          [ 0x9C, 0x4F, 0xEB, 0x21, 0x30, 0xD6, 0x85, 0x7A ],
+          [ 0x90, 0x7A, 0xEB, 0xD6, 0x53, 0x2C, 0x84, 0x1F ],
+          [ 0x05, 0x38, 0x9A, 0xE7, 0xC2, 0x6B, 0xF4, 0x1D ],
+          [ 0xF8, 0x92, 0x14, 0xED, 0x6B, 0x35, 0xC7, 0x0A ],
+          [ 0xAF, 0xD1, 0x35, 0x06, 0x94, 0x7E, 0xC2, 0xB8 ],
+          [ 0x03, 0xD6, 0xE9, 0x8F, 0xC5, 0x7B, 0x1A, 0x24 ]
+];
+
+// Bitwise operations and helpers
+function U32V(v)
+    return v mod 2^32;
+end function;
+
+function ROTL32(v, n)
+    return ((v * 2^n) + (v div 2^(32-n))) mod 2^32;
+end function;
+
+function ROTR32(v, n)
+    return ROTL32(v, 32 - n);
+end function;
+
+function HI_NIBBLE(b)
+    return Floor(b / 2^4) mod 16;
+end function;
+
+function LO_NIBBLE(b)
+    return b mod 16;
+end function;
+
+
+InitializeSerpentBlock := function()
+    return [0 : i in [1..BLOCK_LEN]]; // Sequence of 16 zeros
+end function;
+
+
+BytesToWord := function(blk)
+    return &+[IntegerRing()!blk[i]*2^(8*(i-1)) : i in [1..4]];
+end function;
+
+
+BytesToQWord := function(blk)
+    return &+[IntegerRing()!blk[i]*2^(8*(i-1)) : i in [1..8]];
+end function;
+
+
+
+InitializeSerpentKey := function()
+    return [[0 : j in [1..4]] : i in [1..ROUNDS+1]]; // Sequence of sequences
+end function;
+
+
+procedure Permute(~out, in, initial)
+    Zero := [0 : i in [1..#out]];
+    if initial then
+        for i in [1..#in] do
+            carry := 0;
+            for j in [1..#in div 2] do
+                carry := (in[(j-1) mod 4 + 1] mod 2);
+                in[(j-1) mod 4 + 1] := Floor(in[(j-1) mod 4 + 1] / 2);
+                out[i] := (carry * 2^7) + Floor(out[i] / 2);
+            end for;
+        end for;
+    else
+        // This mirrors the logic for non-initial permutations
+        for i in [1..#in div 4] do
+            for j in [1..#in * 2] do
+                carry := (in[i] mod 2);
+                in[i] := Floor(in[i] / 2);
+                out[(j-1) mod 4 + 1] := (carry * 2^31) + Floor(out[(j-1) mod 4 + 1] / 2);
+            end for;
+        end for;
+    end if;
+end procedure;
+
+
+
+procedure SubBytes(~blk, box_idx, encryption)
+
+ box_idx := (box_idx mod 8) + 1;
+    sbp := encryption select SBox[box_idx] else SBoxInv[box_idx];
+
+    // Temporary block for permutations and transformed values
+    tmp_blk := [IntegerRing() | 0 : i in [1..#blk]];
+    transformed_blk := [IntegerRing() | 0 : i in [1..#blk]];
+
+    // Apply S-box transformation
+    for i in [1..16 by 2] do
+        t := sbp[Floor((i-1)/2) + 1];
+        // Split t into its high and low nibbles and place them in the temporary block
+        tmp_blk[i] := LO_NIBBLE(t); // Use defined LO_NIBBLE function
+        tmp_blk[i+1] := HI_NIBBLE(t); // Use defined HI_NIBBLE function
+    end for;
+
+    // First permutation step
+    Permute(~blk, tmp_blk, true);
+
+    // Apply the transformation based on the permuted values
+    for i in [1..#blk] do
+        t := blk[i];
+        // Use the high and low nibbles of each permuted value to form the final transformed values
+        transformed_blk[i] := (sbp[HI_NIBBLE(t)+1] * 16) + sbp[LO_NIBBLE(t)+1]; // Adjust for 1-based in>
+    end for;
+
+    // Second permutation step with the transformed block
+    Permute(~blk, transformed_blk, false);
+end procedure;
+
+procedure Whiten(~dst, key, idx)
+    for i in [1..#dst div 4] do
+        dst[i] := BitwiseXor(dst[i], key[idx+1][i]); // Magma is 1-indexed, so adjust accordingly
+    end for;
+end procedure;
+
+
+
+procedure LinearTrans(~output, encryption)
+    x0 := output[1];
+    x1 := output[2];
+    x2 := output[3];
+    x3 := output[4];
+
+    if encryption then
+        x2 := ROTL32(x2, 10);
+        x0 := ROTR32(x0, 5);
+        x2 := BitwiseXor(BitwiseXor(x2, x3), ShiftLeft(x1, 7));
+        x0 := BitwiseXor(BitwiseXor(x0, x1), x3);
+        x3 := ROTR32(x3, 7);
+        x1 := ROTR32(x1, 1);
+        x3 := BitwiseXor(BitwiseXor(x3, x2), ShiftLeft(x0, 3));
+        x1 := BitwiseXor(BitwiseXor(x1, x0), x2);
+        x2 := ROTR32(x2, 3);
+        x0 := ROTR32(x0, 13);
+    else
+        x0 := ROTL32(x0, 13);
+        x2 := ROTL32(x2, 3);
+        x1 := BitwiseXor(BitwiseXor(x1, x0), x2);
+        x3 := BitwiseXor(BitwiseXor(x3, x2), ShiftLeft(x0, 3));
+        x1 := ROTL32(x1, 1);
+        x3 := ROTL32(x3, 7);
+        x0 := BitwiseXor(BitwiseXor(x0, x1), x3);
+        x2 := BitwiseXor(BitwiseXor(x2, x3), ShiftLeft(x1, 7));
+        x0 := ROTL32(x0, 5);
+        x2 := ROTR32(x2, 10);
+    end if;
+
+    output[1] := x0;
+    output[2] := x1;
+    output[3] := x2;
+    output[4] := x3;
+end procedure;
+
+function GenW(b, i)
+    ret := BitwiseXor(BitwiseXor(BitwiseXor(BitwiseXor(b[1], b[4]), b[6]), b[8]), GOLDEN_RATIO + i);
+    return ROTL32(ret, 11);
+end function;
+
+
+procedure KeySetup(~key, input)
+    s_ws := [IntegerRing(2^32) | 0 : i in [1..8]]; // Preparing an array of 32-bit integers
+
+    // Copy key input to local buffer
+    for i in [1..KEY_LEN div 4] do
+        s_ws[i] := BytesToWord([input[4*i-3], input[4*i-2], input[4*i-1], input[4*i]]); // Assuming Byte>
+    end for;
+
+    // Expand the key
+    for i in [0..ROUNDS] do
+        for j in [1..4] do
+            key[i+1][j] := GenW(s_ws, i*4+j-1); // Adjusting for 1-based indexing
+
+            // Simulating memmove for the next word generation; shifting s_ws elements left
+            s_ws := s_ws[2..8] cat [key[i+1][j]]; // Remove the first element and append the new word at>
+        end for;
+
+        // Applying subbytes to the expanded key parts
+        // Adjust the call to SubBytes according to your Magma implementation
+        // The SubBytes procedure might need adaptation to work with this part of the key
+    end for;
+end procedure;
+
+
+function HexToBin(hex)
+    // Check for valid hex length
+    if (#hex mod 2 ne 0) then
+        return "Error: Hex string has an odd length.", _;
+    end if;
+
+    // Check for valid hex characters and convert
+    bin := [];
+    for i in [1..#hex by 2] do
+        byte := hex[i] cat hex[i+1];
+        // Check if byte contains valid hex characters
+        if not IsHexadecimal(byte) then
+            return "Error: Invalid hex character.", _;
+        end if;
+        Append(~bin, StringToInteger(byte, 16));
+    end for;
+    return bin, #bin;
+end function;
+
+
+procedure DumpHex(bin)
+    hexStr := "";
+    for byte in bin do
+        hexStr cat:= Sprintf("%02x", byte);
+    end for;
+    print hexStr;
+end procedure;
+
+
+procedure DumpStr(bin)
+    str := "";
+    for byte in bin do
+        str cat:= IntToChar(byte);
+    end for;
+    print str;
+end procedure;
+
+
+
+procedure Encrypt(~blk, key)
+    for i in [1..ROUNDS] do
+        Whiten(~blk, key, i-1); // Magma uses 1-based indexing, adjust accordingly
+        SubBytes(~blk, i-1, true); // Pass true for encryption
+        if i lt ROUNDS then
+            LinearTrans(~blk, true); // Apply linear transformation except in the final round
+        end if;
+    end for;
+    Whiten(~blk, key, ROUNDS); // Final whiten step after all rounds
+end procedure;
+
+
+procedure Decrypt(~blk, key)
+    Whiten(~blk, key, ROUNDS); // Initial whiten step before starting the rounds
+    for i in [ROUNDS..1 by -1] do // Iterate backwards from ROUNDS to 1
+        SubBytes(~blk, i-1, false); // Pass false for decryption
+        Whiten(~blk, key, i-1); // Apply whiten
+        if i ne 1 then // Skip linear transformation in the final iteration (i.e., the first round in re>
+            LinearTrans(~blk, false);
+        end if;
+    end for;
+end procedure;
+
+
+function GenerateKey(keyLength)
+    // Initialize the random seed based on the current time
+    // Generate a sequence of random bytes
+    key := [Random(256) : i in [1..keyLength]];
+    return key;
+end function;
+
+procedure SerpentExample(userInput)
+    message := "";
+    keyInput := "";
+    randomKeyFlag := false;
+    keyFlag := false;
+    encryptFlag := false;
+    decryptFlag := false;
+    skey := InitializeSerpentKey();
+
+    if IsIn(userInput, "generate") then
+        randomKeyFlag := true;
+    elif IsIn(userInput, "encrypt") then
+        encryptFlag := true;
+        message := userInput["encrypt"];
+    elif IsIn(userInput, "decrypt") then
+        decryptFlag := true;
+        message := userInput["decrypt"];
+    end if;
+
+    if IsDefined(userInput, "key") then
+        keyFlag := true;
+        keyInput := userInput["key"];
+    end if;
+
+    if randomKeyFlag then
+        key := GenerateKey(32); // Assuming 32 bytes (256 bits) for the key length
+        DumpHex(key);
+        return;
+    end if;
+
+    if keyFlag then
+        key := HexToBin(keyInput); // Make sure to adapt HexToBin for error handling
+    else
+        key := GenerateKey(32); // Generate a random key if not specified
+    end if;
+
+    if encryptFlag then
+        // Convert message to block (make sure to adapt this part to your data structures)
+        blk := InitializeSerpentBlock();
+        // Adapt for your message handling and encryption logic
+        Encrypt(~blk, skey); // Adjust Encrypt procedure to use the provided key
+        DumpHex(blk); // Assuming blk is in the correct format
+    end if;
+
+    if decryptFlag then
+        // Convert message to block (similarly adapt for decryption)
+        blk := InitializeSerpentBlock();
+        Decrypt(~blk, skey); // Adjust Decrypt procedure likewise
+        DumpStr(blk); // Assuming blk is now plaintext and in a suitable format
+    end if;
+end procedure;
